@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from torch.nn.functional import upsample
 from torch.nn.functional import interpolate
 from function import *
-from SSIM import *
 import torchvision.transforms as transforms
 from Network import *
 import matplotlib.pyplot as plt
@@ -23,7 +22,6 @@ def test(val_loader, model, P, WS, transform, print_each, params, mat_path):
 
     names = get_img_name(Path='/media/pyguan/Newdisk/HSI_Data/%s/' % (params.dataset), datasets=params.dataset + '_val')
     psnr, ssim, ergas, sam, rmse, total = 0., 0., 0., 0., 0., 0.
-    test_time = 0.
     for iteration, val_data in enumerate(val_loader, 1):
         with torch.no_grad():
             # Load the data into the GPU if required
@@ -38,42 +36,12 @@ def test(val_loader, model, P, WS, transform, print_each, params, mat_path):
             VAL_LR_HSI = val_down_spa(val)
             VAL_HR_MSI = torch.matmul(P,val.reshape(-1,val.shape[1],val.shape[2]*val.shape[3])).reshape(-1,P.size()[1],val.shape[2],val.shape[3])
             Input = transform([VAL_HR_MSI, VAL_LR_HSI])
-            previous_time = time.time()
             val_out = model(Input)
-            after_time = time.time()
-            val_out = torch.squeeze(val_out)
-            ### compute psnr for whole image
-            val = val.squeeze()
-
-            PSNR = PSNR_GPU(val.cpu(), val_out.detach().cpu(), dataset_dict[params.dataset][3])
-            SAM = SAM_GPU(val, val_out.detach())
-            SSIM = ssim_GPU(val.unsqueeze(0), val_out.unsqueeze(0).detach())
-            ERGAS = ERGAS_GPU(val, val_out.detach(), 1/factor)
-            _, RMSE = RMSE_GPU(val, val_out.detach())
-
-            if print_each:
-                print('For the {0}th image the test time is {1:.6f}'.format(iteration, after_time- previous_time))
-                print('For the {0}th image the ERGAS, PSNR,SAM,SSIM, RMSE are {1:.4f}, {2:.4f}, {3:.4f}, {4:.4f}, {5:.5f}.'.format(iteration, ERGAS, PSNR, SAM, SSIM, RMSE))
 
             sio.savemat(os.path.join(mat_path, names[iteration-1])+'.mat', {'hsi': np.array(val_out.detach().cpu()).transpose((1,2,0))})
-            psnr += PSNR
-            sam += SAM
-            ssim += SSIM
-            ergas += ERGAS
-            rmse += RMSE
-            test_time += after_time- previous_time
             total += 1
+    print('Test results generated and saved.')
 
-    # tqdm.write("total number of validation patches {}".format(total))
-    psnr = psnr / total
-    sam = sam/total
-    ssim = ssim/total
-    ergas = ergas/total
-    rmse = rmse/total
-    test_time = test_time/total
-    print('For the test dataset of {0} on model {6}, the average ERGAS, PSNR, SAM, SSIM, RMSE are {1:.4f}, {2:.4f}, {3:.4f}, {4:.4f}, {5:.4f}.'.format(params.dataset, ergas, psnr, sam, ssim, rmse, params.model))
-    print('The average test time is {0:.6f}'. format(test_time))
-    return psnr, sam, ssim, ergas, rmse, total
 
 #learning rate decay
 def LR_Decay(optimizer, n, params, rate):
