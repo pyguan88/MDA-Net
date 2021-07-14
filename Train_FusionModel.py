@@ -20,8 +20,8 @@ from torchsummary import summary
 
 def test(val_loader, model, P, WS, transform, print_each, params, mat_path):
 
-    names = get_img_name(Path='/media/pyguan/Newdisk/HSI_Data/%s/' % (params.dataset), datasets=params.dataset + '_val')
-    psnr, ssim, ergas, sam, rmse, total = 0., 0., 0., 0., 0., 0.
+    names = get_img_name(Path='Data/%s/' % (params.dataset), datasets=params.dataset + '_val')
+    total = 0
     for iteration, val_data in enumerate(val_loader, 1):
         with torch.no_grad():
             # Load the data into the GPU if required
@@ -37,8 +37,10 @@ def test(val_loader, model, P, WS, transform, print_each, params, mat_path):
             VAL_HR_MSI = torch.matmul(P,val.reshape(-1,val.shape[1],val.shape[2]*val.shape[3])).reshape(-1,P.size()[1],val.shape[2],val.shape[3])
             Input = transform([VAL_HR_MSI, VAL_LR_HSI])
             val_out = model(Input)
+            val_out = torch.squeeze(val_out)
 
             sio.savemat(os.path.join(mat_path, names[iteration-1])+'.mat', {'hsi': np.array(val_out.detach().cpu()).transpose((1,2,0))})
+            print('{0}th test image is saved.'.format(total))
             total += 1
     print('Test results generated and saved.')
 
@@ -136,7 +138,7 @@ if __name__=='__main__':
     mem_load = params.mem_load
     noise = params.noise
     Train_image_num=dataset_dict[dataset][0]
-    inter_image_num = dataset_dict[dataset][5]
+    Valid_image_num = dataset_dict[dataset][1]
     snr = 30
 
     if pan:
@@ -189,7 +191,7 @@ if __name__=='__main__':
         model.load_state_dict(tmp)
         print('Model loaded successfully!')
 
-    Path = '/media/pyguan/Newdisk/HSI_Data'
+    Path = 'Data'
     Path = os.path.join(Path, params.dataset)
 
     if params.phase == 'train':

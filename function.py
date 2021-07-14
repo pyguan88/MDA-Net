@@ -136,26 +136,26 @@ dataset_dict = dict(
 def get_img_name(Path='Data/Houston/', datasets='Houston'):
 
     names_PaviaC_list = [
-    'PaviaC_11', 'PaviaC_12', 'PaviaC_13', 'PaviaC_21', 'PaviaC_22', 'PaviaC_23',
-    'PaviaC_31', 'PaviaC_32', 'PaviaC_33', 'PaviaC_41', 'PaviaC_42', 'PaviaC_43',
-    'PaviaC_51', 'PaviaC_52', 'PaviaC_53'
+    'PaviaC_01', 'PaviaC_02', 'PaviaC_03', 'PaviaC_04', 'PaviaC_05', 'PaviaC_06',
+    'PaviaC_07', 'PaviaC_08', 'PaviaC_09', 'PaviaC_10', 'PaviaC_11', 'PaviaC_12',
+    'PaviaC_13', 'PaviaC_14', 'PaviaC_15'
     ]
 
     names_Houston_list = [
-    'Houston_11', 'Houston_21', 'Houston_31', 'Houston_41', 'Houston_51'
+    'Houston_01', 'Houston_02', 'Houston_03', 'Houston_04', 'Houston_05'
     ]
 
     names_dc_list = [
-    'dc_11', 'dc_12', 'dc_21', 'dc_22',
-    'dc_31', 'dc_32', 'dc_41', 'dc_42',
-    'dc_51', 'dc_52', 'dc_61', 'dc_62',
-    'dc_71', 'dc_72', 'dc_81', 'dc_82',
+    'dc_01', 'dc_02', 'dc_03', 'dc_04',
+    'dc_05', 'dc_06', 'dc_07', 'dc_08',
+    'dc_09', 'dc_10', 'dc_11', 'dc_12',
+    'dc_13', 'dc_14', 'dc_15', 'dc_16',
     ]
 
     names_PaviaU_list = [
-    'PaviaU_11', 'PaviaU_12', 'PaviaU_13', 'PaviaU_21', 'PaviaU_22', 'PaviaU_23',
-    'PaviaU_31', 'PaviaU_32', 'PaviaU_33', 'PaviaU_41', 'PaviaU_42', 'PaviaU_43',
-    'PaviaU_51', 'PaviaU_52', 'PaviaU_53'
+    'PaviaU_01', 'PaviaU_02', 'PaviaU_03', 'PaviaU_04', 'PaviaU_05', 'PaviaU_06',
+    'PaviaU_07', 'PaviaU_08', 'PaviaU_09', 'PaviaU_10', 'PaviaU_11', 'PaviaU_12',
+    'PaviaU_13', 'PaviaU_14', 'PaviaU_15'
     ]
 
     names_Houston, names_Houston_valid = split(names_Houston_list, shuffle=True, ratio=0.6)
