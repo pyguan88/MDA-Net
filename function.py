@@ -32,7 +32,6 @@ class TransDimen(nn.Module):
         super(TransDimen, self).__init__()
 
     def forward(self,x):
-        #print(x.shape)
         return torch.Tensor.permute(x,[0,2,1])
 
 def channel_crop(data, position, length):
@@ -65,7 +64,6 @@ def PSNR_GPU(im_true, im_fake):
     Ifake = im_fake.clone()
     mse = nn.MSELoss(reduce=False)
     err = mse(Itrue, Ifake).sum() / (C*H*W)
-    # print(type(err.data))
     psnr = 10. * np.log((data_range**2)/(err.data + esp)) / np.log(10.)
     return psnr
 
@@ -87,25 +85,6 @@ def PSNR_VAL(im_true, im_fake):
     psnr_avg = psnr.mean()
     return psnr_avg
 
-def PSNR_GPU_range(im_true, im_fake, data_range):
-    C = im_true.size()[0]
-    H = im_true.size()[1]
-    W = im_true.size()[2]
-    Itrue = im_true.clone().clamp(0, 1)
-    Ifake = im_fake.clone().clamp(0, 1)
-
-
-    Itrue *= data_range
-    Ifake *= data_range
-    Itrue = Itrue.round()
-    Ifake = Ifake.round()
-    data_range = data_range
-    esp = 1e-12
-
-    mse = nn.MSELoss(reduce=False)
-    err = mse(Itrue, Ifake).sum() / (C*H*W)
-    psnr = 10. * np.log((data_range**2)/(err.data + esp)) / np.log(10.)
-    return psnr
 
 def RMSE_GPU(im_true, im_fake):
     C = im_true.size()[0]
@@ -211,8 +190,7 @@ def split(full_list,shuffle=False,ratio=0.2):
     offset = int(n_total * ratio)
     if n_total==0 or offset<1:
         return [],full_list
-    # random.seed(2) ### for the MDA-Net experiment
-    random.seed(2)
+    random.seed(4)
     if shuffle:
         random.shuffle(full_list)
     sublist_1 = full_list[:offset]
@@ -224,7 +202,6 @@ def all_data_in(Path='Data/Houston/', datasets='Houston', Train_image_num=10):
 
     names = get_img_name(Path=Path, datasets=datasets)
     allData = []
-    print(names)
 
     for i in range(Train_image_num):
         Data = sio.loadmat(os.path.join(Path, names[i])+'.mat')

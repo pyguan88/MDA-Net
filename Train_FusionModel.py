@@ -14,13 +14,10 @@ from torch.nn.functional import interpolate
 from function import *
 from SSIM import *
 import torchvision.transforms as transforms
-from ThreeBranch_3 import *
+from Network import *
 import matplotlib.pyplot as plt
 from PIL import Image
-from sewar.no_ref import d_lambda, d_s, qnr
 from torchsummary import summary
-
-
 
 def test(val_loader, model, P, WS, transform, print_each, params, mat_path):
 
@@ -48,7 +45,7 @@ def test(val_loader, model, P, WS, transform, print_each, params, mat_path):
             ### compute psnr for whole image
             val = val.squeeze()
 
-            PSNR = PSNR_GPU_range(val.cpu(), val_out.detach().cpu(), dataset_dict[params.dataset][3])
+            PSNR = PSNR_GPU(val.cpu(), val_out.detach().cpu(), dataset_dict[params.dataset][3])
             SAM = SAM_GPU(val, val_out.detach())
             SSIM = ssim_GPU(val.unsqueeze(0), val_out.unsqueeze(0).detach())
             ERGAS = ERGAS_GPU(val, val_out.detach(), 1/factor)
@@ -57,7 +54,6 @@ def test(val_loader, model, P, WS, transform, print_each, params, mat_path):
             if print_each:
                 print('For the {0}th image the test time is {1:.6f}'.format(iteration, after_time- previous_time))
                 print('For the {0}th image the ERGAS, PSNR,SAM,SSIM, RMSE are {1:.4f}, {2:.4f}, {3:.4f}, {4:.4f}, {5:.5f}.'.format(iteration, ERGAS, PSNR, SAM, SSIM, RMSE))
-            # F.write('For the {0}th epoch the ERGAS, PSNR, SAM, SSIM are {1:.2f}, {2:.2f}, {3:.4f}, {4:.4f}.\n'.format(iteration, ERGAS, PSNR, SAM, SSIM))
 
             sio.savemat(os.path.join(mat_path, names[iteration-1])+'.mat', {'hsi': np.array(val_out.detach().cpu()).transpose((1,2,0))})
             psnr += PSNR
@@ -77,7 +73,6 @@ def test(val_loader, model, P, WS, transform, print_each, params, mat_path):
     test_time = test_time/total
     print('For the test dataset of {0} on model {6}, the average ERGAS, PSNR, SAM, SSIM, RMSE are {1:.4f}, {2:.4f}, {3:.4f}, {4:.4f}, {5:.4f}.'.format(params.dataset, ergas, psnr, sam, ssim, rmse, params.model))
     print('The average test time is {0:.6f}'. format(test_time))
-    psnr1, sam1, ssim1, ergas1, rmse1, total1 = assessment(params.dataset, params.model, params.factor, params)
     return psnr, sam, ssim, ergas, rmse, total
 
 #learning rate decay
@@ -96,20 +91,16 @@ def train(train_loader, model, start_epoch, stop_epoch, save_path, params, P, WS
     L1 = nn.L1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     #Training
-    max_psnr = 0.
 
     for epoch in range(start_epoch, stop_epoch):
         model.train()
         print('*'*10, 'The {}th epoch for training.'.format(epoch+1), '*'*10)
         print_freq  = int((len(train_loader.dataset)/batch_size)/5)
-        # print(print_freq)
         running_loss = 0  #the total loss
-        # start = time.time()
+
         for iteration, Data in enumerate(train_loader, 1):
             GT = Data.type(torch.cuda.FloatTensor)
-            # end = time.time()
-            # print(end - start)
-            #Random define the spatial downsampler
+
             ws = np.random.randint(0,5,1)[0]
             ws = WS[ws]
             # ws = [8, 2]
@@ -117,7 +108,7 @@ def train(train_loader, model, start_epoch, stop_epoch, save_path, params, P, WS
                 GT.shape[1], factor, kernel_type='gauss12', kernel_width=ws[0],
                 sigma=ws[1],preserve_size=True
             ).type(torch.cuda.FloatTensor)
-            # print(factor)
+
             #Generate the LR_HSI
             LR_HSI = down_spa(GT)
             assert LR_HSI.size()[2] * factor == GT.size()[2], 'The LR_HSI size is incorrect.'
@@ -139,6 +130,7 @@ def train(train_loader, model, start_epoch, stop_epoch, save_path, params, P, WS
             if iteration% print_freq ==0:
                 print('Epoch {:d} | Batch {}/{} | loss {:f}'.format(epoch, iteration, len(train_loader), running_loss/float(iteration)))
 
+        print('*'*10, 'The average loss/batch is {:.4f}.'.format(running_loss/len(train_loader)), '*'*10)
 
         if epoch%10 == 0:
             LR_Decay(optimizer, epoch/10, params, 0.9)
@@ -167,13 +159,11 @@ if __name__=='__main__':
     lr = params.lr
     batch_size=params.batch_size
     factor = params.factor
-    depth = 16 ### network depth
     dataset = params.dataset
     patch_size = params.patch_size
     stride = params.stride
     net = params.model
     fusion = params.fusion
-    multi_dgd = params.multi_dgd
     pan = params.pan
     mem_load = params.mem_load
     noise = params.noise
@@ -188,7 +178,6 @@ if __name__=='__main__':
         Dim = [1, 1 + dataset_dict[dataset][4], dataset_dict[dataset][4]]
         P = torch.ones(1,Dim[2])
         P = Variable(torch.unsqueeze(P/P.sum(), 0).type(torch.cuda.FloatTensor))
-        gff = lambda I, P, r, eps: pan_gf(I, P, r, eps)
     else:
         # Dim=[3, 34, 31]
         save_path = './Models/%s_X%s/MSI/%s_%s_%s_%s' %(dataset, str(factor), net, fusion, str(patch_size), str(stride))
@@ -196,13 +185,9 @@ if __name__=='__main__':
 
         Dim = [3, 3 + dataset_dict[dataset][4], dataset_dict[dataset][4]]
         P = Variable(torch.unsqueeze(torch.from_numpy(P['P']),0)).type(torch.cuda.FloatTensor)
-        gff = lambda I, P, r, eps: adaptive_gf(I, P, r, eps)
-    if multi_dgd:
-        save_path += '_md'
-        WS = [[7,1/2], [8,3], [9,2], [13,4], [15,1.5]]
-    else:
-        save_path += '_sd'
-        WS = [[8,2],[8,2],[8,2],[8,2],[8,2]]
+
+    save_path += '_sd'
+    WS = [[8,2],[8,2],[8,2],[8,2],[8,2]]
 
 
     if noise:
@@ -219,8 +204,8 @@ if __name__=='__main__':
     checkpoint_dir = os.path.join(save_path, 'model_best.pth')
 
 
-    if net == 'MSDANet':
-        model = MSDANet(Dim=Dim, nDenselayer=3, nFeat=64, growthRate=32).cuda()
+    if net == 'MDANet':
+        model = MDANet(Dim=Dim, nDenselayer=4, nFeat=64, growthRate=32).cuda()
         transform = transforms.Compose([transforms.Lambda(lambda data: [add_noise(i) for i in data]),
             transforms.Lambda(lambda data: [data[0], upsample(data[1], (data[0].shape[2],data[0].shape[3]), mode='bicubic')]),
             transforms.Lambda(lambda data: ins(data, torch.cat((data[1],data[0]),1), 1)),
@@ -245,12 +230,9 @@ if __name__=='__main__':
             allData = all_data_in(Path=Path, datasets=params.dataset, Train_image_num=Train_image_num)
             dataset = LoadDataset_Mem(allData = allData, patch_size=patch_size, stride=stride)
             data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True, num_workers=12, pin_memory = True)
-
-
         else:
             dataset = LoadDataset(Path=Path, datasets=params.dataset, patch_size=patch_size, stride=stride, up_mode='bicubic', Train_image_num=Train_image_num)
             data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True, num_workers=10, pin_memory = True)
-            ### Load validation dataset (whole image not patch)
 
         model = train(data_loader, model, 0, dataset_dict[params.dataset][2], save_path, params, P, WS, transform)
 
